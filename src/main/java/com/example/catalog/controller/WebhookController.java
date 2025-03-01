@@ -27,14 +27,12 @@ public class WebhookController {
 
     @PostMapping("/webhook")
     public ResponseEntity<String> handleWebhook(@RequestBody Map<String, Object> payload) {
-//        System.out.println("Received Webhook Payload: " + payload);
-
+        System.out.println("Received Webhook Payload: " + payload);
         String deliveryId = getDeliveryId(payload);
         long currentTime = System.currentTimeMillis();
 
         if (recentWebhookEvents.containsKey(deliveryId) &&
                 (currentTime - recentWebhookEvents.get(deliveryId)) < TimeUnit.SECONDS.toMillis(5)) {
-            //System.out.println("Duplicate webhook event ignored: " + deliveryId);
             return ResponseEntity.ok("Duplicate webhook ignored");
         }
 
@@ -54,7 +52,6 @@ public class WebhookController {
     }
 
     private String getDeliveryId(Map<String, Object> payload) {
-        // Extract event ID from Gitea headers if available, otherwise use timestamp
         return String.valueOf(payload.hashCode());
     }
 
