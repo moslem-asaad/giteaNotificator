@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/gitea")
@@ -17,13 +19,26 @@ public class WebhookController {
     private static final String TARGET_USER = "moslem";
     private static final String COMMON_REPO_NAME = "giteaFinalProject";
 
+    private final ConcurrentHashMap<String, Long> recentWebhookEvents = new ConcurrentHashMap<>();
+
     public WebhookController(DiscordNotifier discordNotifier) {
         this.discordNotifier = discordNotifier;
     }
 
     @PostMapping("/webhook")
     public ResponseEntity<String> handleWebhook(@RequestBody Map<String, Object> payload) {
-        System.out.println("Received Webhook Payload: " + payload);
+//        System.out.println("Received Webhook Payload: " + payload);
+
+        String deliveryId = getDeliveryId(payload);
+        long currentTime = System.currentTimeMillis();
+
+        if (recentWebhookEvents.containsKey(deliveryId) &&
+                (currentTime - recentWebhookEvents.get(deliveryId)) < TimeUnit.SECONDS.toMillis(5)) {
+            //System.out.println("Duplicate webhook event ignored: " + deliveryId);
+            return ResponseEntity.ok("Duplicate webhook ignored");
+        }
+
+        recentWebhookEvents.put(deliveryId, currentTime);
 
         String actor = getActor(payload);
         String repoName = getRepoName(payload);
@@ -36,6 +51,11 @@ public class WebhookController {
         discordNotifier.sendNotification(message, sendToCommonRepo, sendToMyEvents);
 
         return ResponseEntity.ok("Webhook received and processed");
+    }
+
+    private String getDeliveryId(Map<String, Object> payload) {
+        // Extract event ID from Gitea headers if available, otherwise use timestamp
+        return String.valueOf(payload.hashCode());
     }
 
     private String getActor(Map<String, Object> payload) {
@@ -64,7 +84,7 @@ public class WebhookController {
         if ("tag".equals(payload.get("ref_type"))) {
             return payload.containsKey("pusher_type") && "user".equals(payload.get("pusher_type")) ? "delete_tag" : "create_tag";
         }
-        if (payload.containsKey("action") && "repository".equals(payload.get("type"))) {
+        if (payload.containsKey("action") && payload.containsKey("repository")) {
             String action = (String) payload.get("action");
             if ("created".equals(action)) {
                 return "repo_created";
