@@ -34,7 +34,7 @@ class WebhookControllerApiTest {
         sender.put("login", "moslem");
         payload.put("sender", sender);
         Map<String, Object> repository = new HashMap<>();
-        repository.put("name", "giteaFinalProject");
+        repository.put("name", "my-repo");
         payload.put("repository", repository);
         payload.put("before", "abc123");
         payload.put("after", "def456");
@@ -53,6 +53,12 @@ class WebhookControllerApiTest {
     @Test
     void testWebhookEndpoint_DuplicateRequestIgnored() {
         Map<String, Object> payload = new HashMap<>();
+        Map<String, Object> sender = new HashMap<>();
+        sender.put("login", "moslem");
+        payload.put("sender", sender);
+        Map<String, Object> repository = new HashMap<>();
+        repository.put("name", "giteaFinalProject");
+        payload.put("repository", repository);
         payload.put("before", "abc123");
         payload.put("after", "def456");
         payload.put("ref", "refs/heads/main");
@@ -164,4 +170,33 @@ class WebhookControllerApiTest {
                 .statusCode(200)
                 .body(equalTo("Webhook received and processed"));
     }
+
+    @Test
+    void testWebhookEndpoint_EmptyPayload_ShouldReturnBadRequest() {
+        given()
+                .contentType(ContentType.JSON)
+                .body(new HashMap<>())
+                .when()
+                .post("/gitea/webhook")
+                .then()
+                .statusCode(400)
+                .body(equalTo("Invalid payload: Request body is empty."));
+    }
+
+    @Test
+    void testWebhookEndpoint_MissingRequiredFields_ShouldReturnBadRequest() {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("before", "abc123");
+        payload.put("after", "def456");
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(payload)
+                .when()
+                .post("/gitea/webhook")
+                .then()
+                .statusCode(400)
+                .body(equalTo("Invalid webhook payload: Missing required fields."));
+    }
+
 }
